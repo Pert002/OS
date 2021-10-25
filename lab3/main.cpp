@@ -7,40 +7,21 @@ using namespace std;
 
 
 
-void res_threat(double (*original)[3], double (*convolution)[3], int orig_line, int conv_col, double (*result)[3])
+void matrix_thread(vector<vector<double>> matrix, double (*convolution)[3], int line, int columns, double* resul)
 {
-    double res = 0.0;
-    res = original[orig_line][conv_col] * convolution[orig_line][conv_col];
-
-    result[orig_line][conv_col] = res;
-}
-
-
-void matrix_threat(double (*buffer)[3], double (*conv)[3], double (*res)[3], int thread_amount)
-{
-    vector<thread> th(thread_amount);
-    int current = 0;
-
-    for (int i = 0; i < 3; i++)
-    {
-        for (int j = 0; j < 3; j++)
-        {
-            th[current] = thread(res_threat, buffer, conv, i, j, res);
-            current++;
-            if (current == thread_amount)
-            {
-                current = 0;
-                for (int t = 0; t < thread_amount; t++)
-                {
-                    th[t].join();
-                }
+    //double res = 0.0;
+    //double buffer[3][3];
+    for (int J = 0; J < columns - 2; J++) {
+        double res = 0.0;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                res += matrix[line + i][J] * convolution[i][j];
+                cout << matrix[line + i][J] * convolution[i][j] << " ";
             }
-        } 
-    }
-
-    for (int t = 0; t < current; t++)
-    {
-        th[t].join();
+            cout << "\n\n\n\n";
+        }
+        cout << "--------------------------------------------------\n";
+        resul[J] = res;
     }
 }
 
@@ -49,25 +30,28 @@ void matrix_threat(double (*buffer)[3], double (*conv)[3], double (*res)[3], int
 
 
 
-int main() {
+
+int main(int argc, char* argv[]) {
     int lines, columns, k;
     cout << "k is \n";
     cin >> k;
     int ck = k;
 
+    int thread_amount = atoi(argv[1]);
+
     cout << "Enter matrix's size:\n";
     cin >> lines >> columns;
 
-    vector<vector<double>> orig(lines, vector<double> (columns));
-    vector<vector<double>> orig2(lines, vector<double> (columns));
+    vector<vector<double>> matrix(lines, vector<double> (columns));
+    vector<vector<double>> matrix2(lines, vector<double> (columns));
 
     cout << "Enter matrix:\n";
     for (int i = 0; i < lines; i++)
     {
         for (int j = 0; j < columns; j++)
         {
-            cin >> orig[i][j];
-            orig2[i][j] = orig[i][j];
+            cin >> matrix[i][j];
+            matrix2[i][j] = matrix[i][j];
         }
     }
 
@@ -81,50 +65,63 @@ int main() {
         }
     }
 
-    int thread_amount;
-    cout << "Enter threads amount:\n";
-    cin >> thread_amount;
-    cout << "\n";
-
-    int m = 0;
-    double buffer[3][3];
-    vector<vector<double>> result(lines - ck + k - m, vector<double>(columns - ck + k - m, 0));
+    //double buffer[3][3];
+    //vector<vector<double>> result(lines - 2, vector<double>(columns - 2, 0));
+    vector<thread> threads_matrix(lines - 2);
 
     while(k--) {
-        m++;
-        for (int I = 0; I < lines - ck + k - m; I++) {
-            for (int J = 0; J < columns - ck + k - m; J++) {
-                for (int i = 0; i < 3; i++) {
-                    for (int j = 0; j < 3; j++) {
-                        buffer[i][j] = orig[i + I][j + J];
-                    }
+        double *resul = new double[columns - 2];
+        vector<vector<double>> result(lines - 2, vector<double>(columns - 2, 0));
+        if (thread_amount == -1 || thread_amount >= lines - 2) {
+            for (int i = 0; i < lines - 2; i++) {
+                threads_matrix[i] = thread(matrix_thread, matrix, convolution, i, columns, resul);
+            }
+            for (int i = 0; i < lines - 2; i++) {
+                threads_matrix[i].join();
+            }
+            for (int i = 0; i < lines - 2; i++) {
+                for (int j = 0; j < columns - 2; j++) {
+                    result[i][j] = resul[j];
+                    //cout << "\n" << result[i][j] << "\n";
                 }
-
-
-                double res[3][3];
-                matrix_threat(buffer, convolution, res, thread_amount);
-                for(int i = 0; i < 3; i++) {
-                    for (int j = 0; j < 3; j++) {
-                        result[I][J] += res[i][j];
-                    }
-                }
-
-                orig2[I][J] = result[I][J];
-                result[I][J] = 0;
             }
         }
-        orig = orig2;
+
+        else {
+            for (int i = 0; i < lines - 2; i++) {
+                if(i >= thread_amount && i != 0) {
+                        threads_matrix[i - thread_amount].join();
+                }
+                threads_matrix[i] = thread(matrix_thread, matrix, convolution, i, columns, resul);
+            }
+            for (int i = lines - thread_amount - 2; i < lines - 2; i++) {
+                threads_matrix[i].join();
+            }
+            for (int i = 0; i < lines - 2; i++) {
+                for (int j = 0; j < columns - 2; j++) {
+                    //cout << resul[j];
+                    result[i][j] = resul[j];
+                    //cout << "\n" << result[i][j] << "\n";
+                }
+            }
+        }
+        matrix = result;
+        if (k != 0) {
+        lines = lines - 2;
+        columns = columns - 2;
+        }
     }
     cout << "Result:\n";
-    for (int i = 0; i < lines - ck - m; i++)
+    for (int i = 0; i < lines - 2; i++)
     {
-        for (int j = 0; j < columns - ck - m; j++)
+        for (int j = 0; j < columns - 2; j++)
         {
-            cout << orig[i][j] << " ";
+            cout << matrix[i][j] << " ";
         }
         cout << endl;
     }
     return 0;
+    //delete[] resul;
 }
 
 //------------------------------------------------------------------------
